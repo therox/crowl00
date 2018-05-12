@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -118,9 +119,17 @@ var myCloudUsers []cloudUsersStruct
 //	точка входа
 func main() {
 	//	Создаем файл настроек
-	loadSettings()
+	err := loadSettings()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
 	//	Создание списка пользователей
-	loadCloudUsers()
+	err = loadCloudUsers()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
 
 	//	Инитим аргументы из командной строки
 	initPromptArgs()
@@ -923,7 +932,7 @@ func cloudSendFileByMail(typeOfMessage bool, username string, filename string) {
 }
 
 //	программа загрузки настроек
-func loadSettings() {
+func loadSettings() error {
 
 	//	Читаем содержимое файла настроек
 	bs, err := ioutil.ReadFile(settingsFileName)
@@ -933,17 +942,18 @@ func loadSettings() {
 		bs, err := json.Marshal(mySettings)
 		if err != nil {
 			// Произошло невероятное - не удалось замаршаллить структуру. Одна черепаха, похоже, сдохла.
-			fmt.Println(err)
-			return
+			return err
 		}
 		// Пишем и выходим, ибо оператор должен подкорректировать настроешное файло ручками
 		ioutil.WriteFile(settingsFileName, bs, 0666)
-		return
+		return errors.New("создан новый файл с настройками " +
+			settingsFileName +
+			". Пожалуйста, проверьте правильность данного файла и перезапустите программу")
 	}
 
 	// Получить размер файла
 	if len(bs) == 0 {
-		return
+		return errors.New("Пустой файл с настройками")
 	}
 
 	//	Размаршаливаем прочитанное в структуру
@@ -951,10 +961,11 @@ func loadSettings() {
 
 	//	Выводим сообщение
 	fmt.Println("Процесс инициализации завершен")
+	return nil
 }
 
 //	программа загрузки настроек
-func loadCloudUsers() {
+func loadCloudUsers() error {
 	//	А может тут и ЛДАП будет когда-нить
 
 	//	Читаем содержимое файла пользователей
@@ -967,13 +978,16 @@ func loadCloudUsers() {
 		if err != nil {
 			fmt.Println(err)
 		}
-		return
+		return errors.New("создан новый файл с пользователями " +
+			usersFileName +
+			". Пожалуйста, проверьте правильность данного файла и перезапустите программу")
 
 	}
 
 	// Получить размер файла
 	if len(bs) == 0 {
-		return
+		// Файл пустой, о чем вы ваще думали?
+		return errors.New("Пустой файл с пользователями")
 	}
 
 	//	Размаршалливаем прочитанное в структуру
@@ -982,4 +996,5 @@ func loadCloudUsers() {
 	//	Выводим сообщение
 	fmt.Println("Процесс подгрузки списка пользователей завершен2")
 	fmt.Println(myCloudUsers)
+	return nil
 }
