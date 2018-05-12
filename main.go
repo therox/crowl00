@@ -1,88 +1,28 @@
-//package main
-//
-//import (
-//	"fmt"
-//	"github.com/anaskhan96/soup"
-//	"os"
-//	"strings"
-//)
-//
-//func main() {
-//
-//	resp, err := soup.Get("https://www.project-syndicate.org/")
-//	if err != nil {
-//		os.Exit(1)
-//	}
-//	doc := soup.HTMLParse(resp)
-//	divs := doc.FindAll("article", "class", "section__article-preview")
-//	count := 0
-//	for _, div := range divs {
-//		links := div.FindAll("a")
-//		for _, link := range links {
-//			if strings.Contains(link.Attrs()["href"], "commentary") {
-//				fmt.Println("=====")
-//				fmt.Println(link.Attrs()["href"], "\n", link.Text(), "\n------")
-//				count++
-//				getText("https://project-syndicate.org" + link.Attrs()["href"])
-//			}
-//		}
-//	}
-//	fmt.Println(count)
-//}
-//
-//func getText(articleUrl string) {
-//	resp, err := soup.Get(articleUrl)
-//	if err != nil {
-//		os.Exit(1)
-//	}
-//	doc := soup.HTMLParse(resp)
-//	sections := doc.FindAll("section", "data-page-area", "article-body")
-//	for _, section := range sections {
-//		datas := section.FindAll("p")
-//		for _, data := range datas {
-//			if len(data.Text()) > 0 {
-//				fmt.Println(data)
-//			}
-//		}
-//	}
-//}
-
 package main
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
-	//"encoding/json"
-
-	"net/http"
-	//"io/ioutil"
-	//"bytes"
-	//"net/url"
-	//"io/ioutil"
-	//"io/ioutil"
-	//"strconv"
-	//"bytes"
-	//"encoding/json"
 
 	"github.com/anaskhan96/soup"
 	"github.com/gorilla/mux"
 	"golang.org/x/net/html"
-	//"log"
+
 	"encoding/json"
 	"log"
 
-	//"database/sql"
-	_ "github.com/lib/pq"
 	"github.com/jmoiron/sqlx"
-	//"time"
+	_ "github.com/lib/pq"
 	"labix.org/v2/mgo"
 
-	"labix.org/v2/mgo/bson"
-	"io/ioutil"
-	"io"
 	"crypto/sha1"
+	"io"
+	"io/ioutil"
+
 	"github.com/jordan-wright/email"
+	"labix.org/v2/mgo/bson"
 
 	"net/smtp"
 )
@@ -90,85 +30,87 @@ import (
 //	подключение к БД
 const (
 	//	Файл настроек
-	SETTINGS_FILE_NAME = "cloud.conf"
-	USERS_FILE_NAME = "users.conf"
+	settingsFileName = "cloud.conf"
+	usersFileName    = "users.conf"
 	//	ДБ
-	DB_HOST		= "192.168.1.50"
-	DB_USER     = "qz0.ru"
-	DB_PASSWORD = ""
-	DB_NAME     = "qz0.ru"
+	defaultDBHost = "192.168.1.50"
+	dbUser        = "qz0.ru"
+	dbPassword    = ""
+	dbName        = "qz0.ru"
 	//	роутинг
-	LISTENING_PORT = "12346"
+	defaultListeningPort = "12346"
 )
 
 //	структура одного поста
-type settingsStruct struct{
-	ListeningIp string
-	ListeningPort string
-	EmailSmtpServerIp string
-	EmailSmtpServerPort string
-	EmailSmtpLogin string
-	EmailSmtpPassword string
-	EmailFromName string
-	EmailFromMail string
-	EmailTo string
-	EmailCopy string
-	EmailShadow string
-	EmailSubjectAdm string
-	EmailTextBeforeUsernameAdm string
-	EmailTextAfterUsernameAdm string
-	EmailSubjectUser string
+type settingsStruct struct {
+	ListeningIP                 string
+	ListeningPort               string
+	EmailSMTPServerIP           string
+	EmailSMTPServerPort         string
+	EmailSMTPLogin              string
+	EmailSMTPPassword           string
+	EmailFromName               string
+	EmailFromMail               string
+	EmailTo                     string
+	EmailCopy                   string
+	EmailShadow                 string
+	EmailSubjectAdm             string
+	EmailTextBeforeUsernameAdm  string
+	EmailTextAfterUsernameAdm   string
+	EmailSubjectUser            string
 	EmailTextBeforeUsernameUser string
-	EmailTextAfterUsernameUser string
+	EmailTextAfterUsernameUser  string
 }
 
-type cloudUsersStruct struct{
-	UserName string
+type cloudUsersStruct struct {
+	UserName  string
 	UserEmail string
 }
 
 //	структура одного поста
-type postStruct struct{
-	PostId string `json:"_id"`
-	PostTitle string `json:"posttitle"`
-	CreateDate string `json:"createdate"`
-	PostTags []string `json:"posttags"`
-	PostBody string `json:"postbody"`
-	Picture string `json:"picture"`
+type postStruct struct {
+	PostID     string   `json:"_id"`
+	PostTitle  string   `json:"posttitle"`
+	CreateDate string   `json:"createdate"`
+	PostTags   []string `json:"posttags"`
+	PostBody   string   `json:"postbody"`
+	Picture    string   `json:"picture"`
 }
 
 //	структура одного поста
-type postStructForSend struct{
-	PostTitle string `json:"posttitle"`
-	CreateDate string `json:"createdate"`
-	PostTags []string `json:"posttags"`
-	PostBody string `json:"postbody"`
-	Picture string `json:"picture"`
+type postStructForSend struct {
+	PostTitle  string   `json:"posttitle"`
+	CreateDate string   `json:"createdate"`
+	PostTags   []string `json:"posttags"`
+	PostBody   string   `json:"postbody"`
+	Picture    string   `json:"picture"`
 }
 
 //	структура одной новости
-type newsStruct struct{
-	Author string `json:"author"`
-	Date string `json:"date"`
+type newsStruct struct {
+	Author  string `json:"author"`
+	Date    string `json:"date"`
 	Picture string `json:"picture"`
-	Text string `json:"text"`
-	Title string `json:"title"`
+	Text    string `json:"text"`
+	Title   string `json:"title"`
 }
 
 //	проверочная структура
-type testStruct struct{
-	Text string
+type testStruct struct {
+	Text   string
 	Number int
 }
+
 //	*********************
 //	Глобальные переменные
 //	*********************
 
 //	Какой порт слушаем
-var	listeningPort string
+var listeningPort string
 
 //	Объявляем структурку настроек
 var mySettings settingsStruct
+
 //	*********************
 //	Объявляем структурку пользователей
 var myCloudUsers []cloudUsersStruct
@@ -184,137 +126,55 @@ func main() {
 	initPromptArgs()
 
 	fmt.Println("Start")
-	type sourceStruct struct{
+	type sourceStruct struct {
 		Category string
-		Number int
+		Number   int
 	}
 
-	type shardsStruct struct{
-		Total int
+	type shardsStruct struct {
+		Total      int
 		Successful int
-		Skipped int
+		Skipped    int
 	}
-	type shardsWithoutSkippedStruct struct{
-		Total int
+	type shardsWithoutSkippedStruct struct {
+		Total      int
 		Successful int
-		Failed int
+		Failed     int
 	}
-	type hitsHitsStruct struct{
-		HitsIndex string `json:"_index"`
-		HitsType string `json:"_type"`
-		HitsId string `json:"_id"`
-		HitsScore float32 `json:"_score"`
-		HitsSource sourceStruct  `json:"_source"`
+	type hitsHitsStruct struct {
+		HitsIndex  string       `json:"_index"`
+		HitsType   string       `json:"_type"`
+		HitsID     string       `json:"_id"`
+		HitsScore  float32      `json:"_score"`
+		HitsSource sourceStruct `json:"_source"`
 	}
-	type hitsStruct struct{
-		Total int
+	type hitsStruct struct {
+		Total    int
 		MaxScore float32 `json:"max_score"`
-		Hits []hitsHitsStruct
+		Hits     []hitsHitsStruct
 	}
-	type responceStruct struct{
-		Took int
+	type responceStruct struct {
+		Took    int
 		TimeOut bool
-		Shards shardsStruct `json:"_shards"`
-		Hits hitsStruct
+		Shards  shardsStruct `json:"_shards"`
+		Hits    hitsStruct
 	}
-	type requestStruct struct{
+	type requestStruct struct {
 		Category string `json:"category"`
-		Number int `json:"number"`
+		Number   int    `json:"number"`
 	}
-	type addItemResponceStruct struct{
-		Index string `json:"_index"`
-		Type string `json:"_type"`
-		Id string `json:"_id"`
-		Result string `json:"_result"`
-		Shards shardsWithoutSkippedStruct `json:"_shards"`
-		SeqNo int `json:"_seq_no"`
-		PrimaryTerm int `json:"_primary_term"`
+	type addItemResponceStruct struct {
+		Index       string                     `json:"_index"`
+		Type        string                     `json:"_type"`
+		ID          string                     `json:"_id"`
+		Result      string                     `json:"_result"`
+		Shards      shardsWithoutSkippedStruct `json:"_shards"`
+		SeqNo       int                        `json:"_seq_no"`
+		PrimaryTerm int                        `json:"_primary_term"`
 	}
 
-	//
-
-	//client := &http.Client{}
-
-	//resp, err := http.NewRequest(http.MethodGet, "http://localhost:9200", nil)
-	//resp, err := http.Get("http://localhost:9200/data/test00/_search?q={'matchAll':{''}}")
-
-
-	//fmt.Println(strconv.Btoa(body))
-
-	//	ЗДЕСЬ!
-	//var dataStruct responceStruct
-	//json.Unmarshal(	postToDB(
-	//	`{
-	//	"_source": [
-	//	"category",
-	//	"number"
-	//		],
-	//   "query": {
-	//       "match_all" : {}
-	//		}
-	//	}`,
-	//	"_search",
-	//	"",
-	//	"",
-	//), &dataStruct)
-	//fmt.Println("!")
-	//fmt.Printf("%+v\n", dataStruct)
-	//
-	//postToDB(
-	//	`{
-	//	"_source": [
-	//	"category",
-	//	"number"
-	//		],
-	//   "query": {
-	//       "match_all" : {}
-	//		}
-	//	}`,
-	//	"_search",
-	//	"",
-	//	"",
-	//)
-	//postToDB(
-	//	`{
-	//	"_source": [
-	//	"category",
-	//	"number"
-	//		]
-	//	}`,
-	//	"_search",
-	//	"",
-	//	"",
-	//)
-	//
-	//var body []byte = postToDB(
-	//	`{
-	//	"category": "second",
-	//   "number": 2
-	//	}`,
-	//	"",
-	//	"",
-	//	"",
-	//)
 	var newReq requestStruct
 	newReq.Number = 0
-	//newReq.Category = ps()
-	//query, _ := json.Marshal(newReq)
-
-	////	пробуем отправить новость
-	//var body2 []byte = postToDB(
-	//	string(query),
-	//	"",
-	//	"",
-	//	"",
-	//)
-
-	//var struct0 addItemResponceStruct
-	//struct1 := &struct0
-	//json.Unmarshal(body, &struct0)
-	//fmt.Println(struct0.Result)
-
-	//json.Unmarshal(body2, &struct0)
-	//fmt.Println(struct0.Result)
 
 	//	Роутер
 	router := mux.NewRouter()
@@ -330,7 +190,7 @@ func main() {
 	router.HandleFunc("/cloud/{id}", cloudUploadFile).Methods("POST")
 	router.HandleFunc("/cloud/{id}/{file}", cloudFunc).Methods("GET")
 	router.HandleFunc("/cloud/{id}/{file}/{user}", cloudFunc).Methods("GET")
-	log.Fatal(http.ListenAndServe(":" + listeningPort, router))
+	log.Fatal(http.ListenAndServe(":"+listeningPort, router))
 
 }
 
@@ -366,8 +226,8 @@ func getDataFromNode(node *html.Node) string {
 }
 
 //	Вычищаем мусор из HTML
-func getText(articleUrl string) string {
-	resp, err := soup.Get(articleUrl)
+func getText(articleURL string) string {
+	resp, err := soup.Get(articleURL)
 	if err != nil {
 		os.Exit(1)
 	}
@@ -377,7 +237,7 @@ func getText(articleUrl string) string {
 	for _, section := range sections {
 		datas := section.FindAll("p")
 		for _, data := range datas {
-			if 	(data.Attrs()["class"] == "special__button" ||
+			if (data.Attrs()["class"] == "special__button" ||
 				data.Attrs()["class"] == "listing__excerpt") ||
 				len(data.Attrs()["data-line-id"]) < 1 {
 				continue
@@ -430,7 +290,7 @@ func psForNews() []newsStruct {
 		datas := div.FindAll("a")
 		for _, data := range datas {
 			if strings.Contains(data.Attrs()["href"], "commentary") {
-				news :=newsStruct {
+				news := newsStruct{
 					data.Attrs()["href"],
 					"",
 					"",
@@ -444,43 +304,6 @@ func psForNews() []newsStruct {
 	}
 	return returnNews
 }
-
-////	функция отправки методом пост
-//func postToDB(
-//	queryString string,	//	запрос
-//	funcString string,	//	функция
-//	indexString string, //	индекс
-//	serverString string, //	сервер
-//	) []byte {
-//	// переводим строку запроса в последовательность байтов
-//	var query = []byte(queryString)
-//	if ( len(indexString) == 0 ) {
-//		indexString = "data/test00"
-//	}
-//	if ( len(serverString) == 0 ) {
-//		serverString = "localhost:9200"
-//	}
-//	req, err := http.NewRequest("POST",
-//		"http://" + serverString + "/" + indexString + "/" + funcString,
-//		bytes.NewBuffer(query),
-//	)
-//	req.Header.Set("X-Custom-Header", "myvalue")
-//	req.Header.Set("Content-Type", "application/json")
-//
-//	client := &http.Client{}
-//	resp, err := client.Do(req)
-//
-//	if err != nil {
-//		// handle error
-//		panic(err)
-//	}
-//	defer resp.Body.Close()
-//
-//	body, _ := ioutil.ReadAll(resp.Body)
-//	fmt.Println("Resp: \n" +
-//		"==================================================\n", string(body))
-//	return body
-//}
 
 //	ответ на посты
 func postsFunc(w http.ResponseWriter, req *http.Request) {
@@ -507,14 +330,12 @@ func postsFunc(w http.ResponseWriter, req *http.Request) {
 		//	Return Resp
 		json.NewEncoder(w).Encode(posts)
 
-
-
 	} else {
 		fmt.Println("isEmplty")
 		json.NewEncoder(w).Encode("{test: 'test'}")
 		//	DB
 		dbinfo := fmt.Sprintf("host=%s user=%s password=%s dbname=%s sslmode=disable",
-			DB_HOST, DB_USER, DB_PASSWORD, DB_NAME)
+			defaultDBHost, dbUser, dbPassword, dbName)
 		db, err := sqlx.Connect("postgres", dbinfo)
 		//checkErr(err)
 		if err != nil {
@@ -526,38 +347,7 @@ func postsFunc(w http.ResponseWriter, req *http.Request) {
 		err = db.Select(&post, "SELECT text, number FROM test WHERE number=11")
 		fmt.Print("Is :", err)
 		fmt.Print(post, len(post))
-
-
-		//if err != nil {
-		//	fmt.Println(err)
-		//	return
-		//} else {
-		//	fmt.Print(err)
-		//	fmt.Print(test0[0].Text, "123", test0[0].Number)
-		//}
-
-		//rows, err := db.Query("SELECT text, number FROM test WHERE number=11")
-		//if rows == nil {
-		//	fmt.Println("Rows is Nil!")
-		//}
-		//for rows.Next() {
-		//	nameOfColumns, _ := rows.Columns()
-		//	for nameOfColumn := range nameOfColumns {
-		//		fmt.Print(nameOfColumns[nameOfColumn], "\t\t\t|\t")
-		//	}
-		//	fmt.Print("\n========================================\n")
-		//	var row1 string
-		//	var row2 int
-		//	if err := rows.Scan(&row1, &row2); err != nil {
-		//		log.Fatal(err)
-		//	}
-		//	fmt.Printf("%s\t|\t%d\t\n", row1, row2)
-		//
-		//}
-
-		//fmt.Print("\nError: ", rows.Err())
 	}
-
 
 }
 
@@ -591,6 +381,7 @@ func addPostFunc(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 }
+
 //	ответ на посты
 func uploadFunc(w http.ResponseWriter, req *http.Request) {
 	//params := mux.Vars(req)
@@ -608,13 +399,12 @@ func uploadFunc(w http.ResponseWriter, req *http.Request) {
 		// они все тут
 		formdata := req.MultipartForm // ok, no problem so far, read the Form data
 
-
 		//get the *fileheaders
 		files := formdata.File["myFile"] // grab the filenames
 		//var fileHeader multipart.FileHeader
 
-		for key, _ := range files {
-			fmt.Printf("file: %s", key)
+		for key := range files {
+			fmt.Printf("file: %v", key)
 			//file, _ := f[key].Open()
 			fmt.Println("Success")
 			//defer file.Close()
@@ -637,7 +427,6 @@ func uploadFunc(w http.ResponseWriter, req *http.Request) {
 		defer f.Close()
 		io.Copy(f, file)
 
-
 		//file, err := files[0].Open()
 
 		fmt.Println("1")
@@ -659,7 +448,7 @@ func newsFunc(w http.ResponseWriter, req *http.Request) {
 		fmt.Println("newsFunc")
 
 		//	Session Closed
-		news:=[]newsStruct{}
+		news := []newsStruct{}
 		//	Error
 		news = psForNews()
 		//	Return Resp
@@ -667,14 +456,12 @@ func newsFunc(w http.ResponseWriter, req *http.Request) {
 
 		//fmt.Println(len(news))
 
-
-
 	} else {
 		fmt.Println("isEmplty")
 		json.NewEncoder(w).Encode("{test: 'test'}")
 		//	DB
 		dbinfo := fmt.Sprintf("host=%s user=%s password=%s dbname=%s sslmode=disable",
-			DB_HOST, DB_USER, DB_PASSWORD, DB_NAME)
+			defaultDBHost, dbUser, dbPassword, dbName)
 		db, err := sqlx.Connect("postgres", dbinfo)
 		//checkErr(err)
 		if err != nil {
@@ -687,40 +474,9 @@ func newsFunc(w http.ResponseWriter, req *http.Request) {
 		fmt.Print("Is :", err)
 		fmt.Print(post, len(post))
 
-
-		//if err != nil {
-		//	fmt.Println(err)
-		//	return
-		//} else {
-		//	fmt.Print(err)
-		//	fmt.Print(test0[0].Text, "123", test0[0].Number)
-		//}
-
-		//rows, err := db.Query("SELECT text, number FROM test WHERE number=11")
-		//if rows == nil {
-		//	fmt.Println("Rows is Nil!")
-		//}
-		//for rows.Next() {
-		//	nameOfColumns, _ := rows.Columns()
-		//	for nameOfColumn := range nameOfColumns {
-		//		fmt.Print(nameOfColumns[nameOfColumn], "\t\t\t|\t")
-		//	}
-		//	fmt.Print("\n========================================\n")
-		//	var row1 string
-		//	var row2 int
-		//	if err := rows.Scan(&row1, &row2); err != nil {
-		//		log.Fatal(err)
-		//	}
-		//	fmt.Printf("%s\t|\t%d\t\n", row1, row2)
-		//
-		//}
-
-		//fmt.Print("\nError: ", rows.Err())
 	}
 
-
 }
-
 
 func testFunc(w http.ResponseWriter, req *http.Request) {
 	params := mux.Vars(req)
@@ -732,7 +488,7 @@ func testFunc(w http.ResponseWriter, req *http.Request) {
 		json.NewEncoder(w).Encode("{test: 'test'}")
 		//	DB
 		dbinfo := fmt.Sprintf("host=%s user=%s password=%s dbname=%s sslmode=disable",
-			DB_HOST, DB_USER, DB_PASSWORD, DB_NAME)
+			defaultDBHost, dbUser, dbPassword, dbName)
 		db, err := sqlx.Connect("postgres", dbinfo)
 		//checkErr(err)
 		if err != nil {
@@ -744,38 +500,7 @@ func testFunc(w http.ResponseWriter, req *http.Request) {
 		err = db.Select(&test0, "SELECT text, number FROM test WHERE number=11")
 		fmt.Print("Is :", err)
 		fmt.Print(test0, len(test0))
-
-
-		//if err != nil {
-		//	fmt.Println(err)
-		//	return
-		//} else {
-		//	fmt.Print(err)
-		//	fmt.Print(test0[0].Text, "123", test0[0].Number)
-		//}
-
-		//rows, err := db.Query("SELECT text, number FROM test WHERE number=11")
-		//if rows == nil {
-		//	fmt.Println("Rows is Nil!")
-		//}
-		//for rows.Next() {
-		//	nameOfColumns, _ := rows.Columns()
-		//	for nameOfColumn := range nameOfColumns {
-		//		fmt.Print(nameOfColumns[nameOfColumn], "\t\t\t|\t")
-		//	}
-		//	fmt.Print("\n========================================\n")
-		//	var row1 string
-		//	var row2 int
-		//	if err := rows.Scan(&row1, &row2); err != nil {
-		//		log.Fatal(err)
-		//	}
-		//	fmt.Printf("%s\t|\t%d\t\n", row1, row2)
-		//
-		//}
-
-		//fmt.Print("\nError: ", rows.Err())
 	}
-
 
 }
 
@@ -928,7 +653,7 @@ func cloudFunc(w http.ResponseWriter, req *http.Request) {
 			AddForm += "<option>" + myCloudUser.UserName + "</option>"
 		}
 
-		AddForm +=   	`
+		AddForm += `
 			</select>
 			Добавить файл: <input type="file" name="uploadFile">
 			<input type="submit" value="Добавить">
@@ -996,8 +721,8 @@ func cloudFunc(w http.ResponseWriter, req *http.Request) {
 			files := formdata.File["fileForm"] // grab the filenames
 			//var fileHeader multipart.FileHeader
 
-			for key, _ := range files {
-				fmt.Printf("file: %s", key)
+			for key := range files {
+				fmt.Printf("file: %v", key)
 				//file, _ := f[key].Open()
 				fmt.Println("Success")
 				//defer file.Close()
@@ -1057,7 +782,6 @@ func cloudFunc(w http.ResponseWriter, req *http.Request) {
 
 	}
 
-
 }
 
 //	Инициализация данных из командной строки
@@ -1070,7 +794,7 @@ func initPromptArgs() {
 		listeningPort = os.Args[1]
 	} else {
 		//	Аргумент один - порт подключения берем по умолчанию
-		listeningPort = LISTENING_PORT
+		listeningPort = defaultListeningPort
 	}
 	fmt.Println(listeningPort)
 }
@@ -1092,14 +816,13 @@ func cloudUploadFile(w http.ResponseWriter, req *http.Request) {
 		// они все тут
 		formdata := req.MultipartForm // ok, no problem so far, read the Form data
 
-
 		user := formdata.Value["user"]
 		//get the *fileheaders
 		files := formdata.File["fileForm"] // grab the filenames
 		//var fileHeader multipart.FileHeader
 
-		for key, _ := range files {
-			fmt.Printf("file: %s", key)
+		for key := range files {
+			fmt.Printf("file: %v", key)
 			//file, _ := f[key].Open()
 			fmt.Println("Success")
 			//defer file.Close()
@@ -1122,7 +845,6 @@ func cloudUploadFile(w http.ResponseWriter, req *http.Request) {
 		defer f.Close()
 		io.Copy(f, file)
 
-
 		//file, err := files[0].Open()
 
 		fmt.Println(user)
@@ -1130,7 +852,6 @@ func cloudUploadFile(w http.ResponseWriter, req *http.Request) {
 		//******************************
 		//	Отправка письма
 		cloudSendFileByMail(true, user[0], handler.Filename)
-
 
 		//******************************
 
@@ -1165,9 +886,9 @@ func cloudSendFileByMail(typeOfMessage bool, username string, filename string) {
 		e.Subject = mySettings.EmailSubjectAdm
 
 		e.HTML = []byte(mySettings.EmailTextBeforeUsernameAdm + username + mySettings.EmailTextAfterUsernameAdm + `
-		<br><a href="http://` + mySettings.ListeningIp + `:`+ mySettings.ListeningPort +
-			`/cloud/sendfile/` + username  + `/` + filename + `">Разрешить</a>
-		<br><a href="http://` + mySettings.ListeningIp +`:`+ mySettings.ListeningPort +
+		<br><a href="http://` + mySettings.ListeningIP + `:` + mySettings.ListeningPort +
+			`/cloud/sendfile/` + username + `/` + filename + `">Разрешить</a>
+		<br><a href="http://` + mySettings.ListeningIP + `:` + mySettings.ListeningPort +
 			`/cloud/deletefile/` + filename + `">Отклонить</a>`)
 
 	} else {
@@ -1189,10 +910,10 @@ func cloudSendFileByMail(typeOfMessage bool, username string, filename string) {
 	//	Сама отправка
 	e.From = mySettings.EmailFromName + " <" + mySettings.EmailFromMail + ">"
 	//e.Text = []byte("Text Body is, of course, supported!")
-	e.AttachFile("./data/"+filename)
-	err := e.Send(mySettings.EmailSmtpServerIp + ":" + mySettings.EmailSmtpServerPort,
-		smtp.PlainAuth("", mySettings.EmailSmtpLogin, mySettings.EmailSmtpPassword,
-			mySettings.EmailSmtpServerIp))
+	e.AttachFile("./data/" + filename)
+	err := e.Send(mySettings.EmailSMTPServerIP+":"+mySettings.EmailSMTPServerPort,
+		smtp.PlainAuth("", mySettings.EmailSMTPLogin, mySettings.EmailSMTPPassword,
+			mySettings.EmailSMTPServerIP))
 	if err != nil {
 
 		fmt.Println(e)
@@ -1205,44 +926,28 @@ func cloudSendFileByMail(typeOfMessage bool, username string, filename string) {
 func loadSettings() {
 
 	//	Читаем содержимое файла настроек
-	myFile, err := os.Open(SETTINGS_FILE_NAME)
+	bs, err := ioutil.ReadFile(settingsFileName)
 	if err != nil {
-
-		//	Файла нет - создаем
-		myFile, err := os.OpenFile("./"+SETTINGS_FILE_NAME, os.O_WRONLY|os.O_CREATE, 0666)
+		// Такого файла нет, создаем файл по-умолчанию
+		mySettings.ListeningPort = defaultListeningPort
+		bs, err := json.Marshal(mySettings)
 		if err != nil {
+			// Произошло невероятное - не удалось замаршаллить структуру. Одна черепаха, похоже, сдохла.
 			fmt.Println(err)
 			return
 		}
-		defer myFile.Close()
-
-		//	Объявляем для примера один параметр
-		mySettings.ListeningPort = LISTENING_PORT
-		//	Маршализируем
-		buf, err := json.Marshal(mySettings)
-		//	Копируем структурку в файлик
-		myFile.Write(buf)
-
+		// Пишем и выходим, ибо оператор должен подкорректировать настроешное файло ручками
+		ioutil.WriteFile(settingsFileName, bs, 0666)
 		return
 	}
-	//	Отложенно закрываем
-	defer myFile.Close()
 
 	// Получить размер файла
-	stat, err := myFile.Stat()
-	if err != nil {
+	if len(bs) == 0 {
 		return
 	}
 
-	// Чтение файла
-	buf := make([]byte, stat.Size())
-	_, err = myFile.Read(buf)
-	if err != nil {
-		return
-	}
-
-	//	Маршалим прочитанное в структуру
-	json.Unmarshal(buf, &mySettings)
+	//	Размаршаливаем прочитанное в структуру
+	json.Unmarshal(bs, &mySettings)
 
 	//	Выводим сообщение
 	fmt.Println("Процесс инициализации завершен")
@@ -1253,43 +958,28 @@ func loadCloudUsers() {
 	//	А может тут и ЛДАП будет когда-нить
 
 	//	Читаем содержимое файла пользователей
-	myFile2, err := os.Open(USERS_FILE_NAME)
-	if err != nil {
 
+	bs, err := ioutil.ReadFile(usersFileName)
+	if err != nil {
 		//	Файла нет - создаем
-		myFile, err := os.OpenFile("./"+USERS_FILE_NAME, os.O_WRONLY|os.O_CREATE, 0666)
+		err = ioutil.WriteFile(usersFileName, []byte(`[{"UserName":"Иванов","UserEmail":"me@qz0.ru"}, 
+			{"UserName":"Петров","UserEmail":"me@qz0.ru"}]`), 0666)
 		if err != nil {
 			fmt.Println(err)
-			return
 		}
-		defer myFile2.Close()
-		//	Копируем структурку в файлик
-		myFile.Write([]byte(`{"UserName":"Иванов","UserEmail":"me@qz0.ru"}, 
-			{"UserName":"Петров","UserEmail":"me@qz0.ru"}`))
-
 		return
+
 	}
-	//	Отложенно закрываем
-	defer myFile2.Close()
 
 	// Получить размер файла
-	stat, err := myFile2.Stat()
-	if err != nil {
+	if len(bs) == 0 {
 		return
 	}
 
-	// Чтение файла
-	buf := make([]byte, stat.Size())
-	_, err = myFile2.Read(buf)
-	if err != nil {
-		return
-	}
-
-	//	Маршалим прочитанное в структуру
-	json.Unmarshal(buf, &myCloudUsers)
+	//	Размаршалливаем прочитанное в структуру
+	json.Unmarshal(bs, &myCloudUsers)
 
 	//	Выводим сообщение
 	fmt.Println("Процесс подгрузки списка пользователей завершен2")
 	fmt.Println(myCloudUsers)
 }
-
