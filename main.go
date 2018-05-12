@@ -64,8 +64,8 @@ type settingsStruct struct {
 }
 
 type cloudUsersStruct struct {
-	UserName  string
-	UserEmail string
+	UserName  string `json:"UserName"`
+	UserEmail string `json:"UserEmail"`
 }
 
 //	структура одного поста
