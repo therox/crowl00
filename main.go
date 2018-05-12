@@ -1289,7 +1289,7 @@ func loadCloudUsers() {
 	json.Unmarshal(buf, &myCloudUsers)
 
 	//	Выводим сообщение
-	fmt.Println("Процесс подгрузки списка пользователей завершен")
+	fmt.Println("Процесс подгрузки списка пользователей завершен2")
 	fmt.Println(myCloudUsers)
 }
 
